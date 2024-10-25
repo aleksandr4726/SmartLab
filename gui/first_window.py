@@ -1,5 +1,6 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton
+from .gistogramma import show_gistogramma_window
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -43,6 +44,8 @@ class MainWindow(QMainWindow):
         self.button2.clicked.connect(self.on_button2_click)
         self.button3.clicked.connect(self.on_button3_click)
 
+        # Атрибут для второго окна, чтобы оно не закрывалось
+        self.second_window = None
 
     # Методы для обработки нажатий кнопок
     def on_button1_click(self):
@@ -52,7 +55,9 @@ class MainWindow(QMainWindow):
         pass
 
     def on_button3_click(self):
-        func3()
+        # Закрытие текущего окна и открытие второго окна
+        self.close()
+        self.gistogramma_window = show_gistogramma_window()
 
 def run_app():
     app = QApplication(sys.argv)
