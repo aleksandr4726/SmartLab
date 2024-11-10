@@ -9,3 +9,6 @@ def read(file_path, message):
         if message == "2":
             return (list(map(int, lines[0].split())))
             return (list(map(int, lines[1].split())))
+
+def read_chart(file_path):
+    pass

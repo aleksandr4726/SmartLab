@@ -1,7 +1,8 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton
 from .gistogramma import show_gistogramma_window
-
+from .array_gui import show_array_window
+from .chart_gui import show_chart_window
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -49,10 +50,12 @@ class MainWindow(QMainWindow):
 
     # Методы для обработки нажатий кнопок
     def on_button1_click(self):
-        pass
+        self.close()
+        self.array_window = show_array_window()
 
     def on_button2_click(self):
-        pass
+        self.close()
+        self.chart_window = show_chart_window()
 
     def on_button3_click(self):
         # Закрытие текущего окна и открытие второго окна

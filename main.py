@@ -3,3 +3,4 @@ from gui.first_window import run_app  # Импортируем функцию ru
 
 if __name__ == "__main__":
     run_app()  # Запускаем окно для выбора действий
+
