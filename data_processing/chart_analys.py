@@ -7,7 +7,7 @@ class Chart:
         self.x = np.array(arrays[0])
         self.y = np.array(arrays[1])
 
-    def coefficient_reg_inv(self):
+    def coefficient_regression_inverse(self):
         size = len(self.x)
         # формируем и заполняем матрицу размерностью 2x2
         A = np.empty((2, 2))
@@ -25,7 +25,7 @@ class Chart:
         ww = np.dot(A, C)
         return ww[1].item(), ww[0].item()  # Используем item() для извлечения значения
 
-    def MNK(self):
+    def LSQ(self):
         # НАСТРОЙКИ ГРАФИКА
         plt.plot(self.x, self.y, 'o')
         plt.xlabel('x', fontsize=14)

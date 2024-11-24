@@ -1,161 +1,187 @@
-import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QTableWidget, \
-    QMessageBox
+# gistogramma.py 
+from PyQt6.QtWidgets import (
+    QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog,
+    QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout
+)
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from data_processing.read_file import read  # Импортируйте функцию read
+import sys
 
-# Хранение figure и canvas как глобальных переменных
-figure = None
-canvas = None
-table = None  # Глобальная переменная для таблицы
+class GistogrammaWindow(QMainWindow):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window  # Ссылка на главное окно
+        self.setWindowTitle("Гистограмма")
+        self.setGeometry(100, 200, 800, 600)
 
+        # Инициализация Figure и Canvas
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
 
-def show_gistogramma_window():
-    """Создает главное окно гистограммы."""
-    global figure, canvas
+        # Создание кнопок
+        self.button_load_file = QPushButton("Ввести данные из файла")
+        self.button_manual_input = QPushButton("Ввести данные вручную")
+        self.button_back = QPushButton("Назад")  # Кнопка возврата
 
-    # Создаем новое окно
-    gistogramma_window = QMainWindow()
-    gistogramma_window.setWindowTitle("Гистограмма")
-    gistogramma_window.setGeometry(100, 200, 800, 600)
+        # Подключение кнопок к методам
+        self.button_load_file.clicked.connect(self.load_data_from_file)
+        self.button_manual_input.clicked.connect(self.manual_input)
+        self.button_back.clicked.connect(self.go_back)
 
-    central_widget = QWidget(gistogramma_window)
-    gistogramma_window.setCentralWidget(central_widget)
+        # Создание основного layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout()
 
-    layout = QVBoxLayout(central_widget)
+        # Горизонтальный layout для кнопок
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addWidget(self.button_load_file)
+        buttons_layout.addWidget(self.button_manual_input)
+        buttons_layout.addWidget(self.button_back)
 
-    button1 = QPushButton("Ввести данные из файла")
-    button2 = QPushButton("Ввести данные вручную")
+        main_layout.addLayout(buttons_layout)
+        main_layout.addWidget(self.canvas)
 
-    layout.addWidget(button1)
-    layout.addWidget(button2)
+        central_widget.setLayout(main_layout)
 
-    # Создаем Figure и FigureCanvas для отображения гистограммы
-    global figure
-    global canvas
-    figure = Figure()
-    canvas = FigureCanvas(figure)
-    layout.addWidget(canvas)
+        # Инициализация таблицы как None
+        self.table = None
 
-    # Подключаем кнопки к функциям
-    button1.clicked.connect(lambda: load_data_from_file(gistogramma_window))
-    button2.clicked.connect(lambda: manual_input(gistogramma_window))
-
-    gistogramma_window.show()
-    return gistogramma_window
-
-
-def load_data_from_file(window):
-    """Загружает данные из файла и строит гистограмму."""
-    file_path, _ = QFileDialog.getOpenFileName(window, "Выберите файл", "", "Все файлы (*.*)")
-    if file_path:
-        try:
-            gist_znach_1 = read(file_path, "1")
-            if gist_znach_1:  # Проверяем, не пустые ли данные
-                draw_gistogramma(gist_znach_1)
-            else:
-                show_error_message("Ошибка: данные пустые!")
-        except ValueError as e:
-            show_error_message(str(e))
-        except Exception as e:
-            show_error_message(f"Ошибка при загрузке данных: {str(e)}")
-
-
-def show_error_message(message):
-    """Отображает сообщение об ошибке в виде всплывающего окна."""
-    error_dialog = QMessageBox()
-    error_dialog.setIcon(QMessageBox.Icon.Critical)
-    error_dialog.setText(message)
-    error_dialog.setWindowTitle("Ошибка")
-    error_dialog.exec()
-
-
-def manual_input(window):
-    """Удаляет старые элементы интерфейса и добавляет новые для ввода данных вручную."""
-    global table  # Используем глобальную переменную таблицы
-    layout = window.centralWidget().layout()
-
-    # Удаляем старую таблицу, если она существует
-    if table is not None:
-        layout.removeWidget(table)  # Удаляем таблицу из layout
-        table.deleteLater()  # Освобождаем память
-
-    # Удаляем старые кнопки, если они существуют
-    while layout.count() > 3:  # Удаляем все элементы, кроме таблицы и двух кнопок
-        item = layout.takeAt(3)  # Удаляем элементы начиная с 4-го
-        if item.widget() is not None:
-            item.widget().deleteLater()
-
-    # Создаем новую таблицу с одним рядом и несколькими столбцами
-    table = QTableWidget(window)
-    table.setRowCount(1)  # Один ряд
-    table.setColumnCount(1)  # Установите необходимое количество столбцов
-
-    # Установка ширины и высоты колонок
-    column_width = 60  # Установите желаемую ширину колонок
-    table.setColumnWidth(0, column_width)  # Устанавливаем ширину первой колонки
-
-    row_height = 60  # Установите желаемую высоту строк
-    table.setRowHeight(0, row_height)  # Устанавливаем высоту первой строки
-
-    # Кнопка для добавления новой колонки
-    add_column_button = QPushButton("Добавить колонку")
-    add_column_button.clicked.connect(lambda: add_new_column(table, column_width, row_height))
-
-    # Кнопка для построения гистограммы на основе введенных данных
-    plot_button = QPushButton("Построить гистограмму")
-    plot_button.clicked.connect(lambda: plot_histogram_from_table(table))
-
-    # Добавляем новые элементы в layout
-    layout.addWidget(table)
-    layout.addWidget(add_column_button)
-    layout.addWidget(plot_button)
-
-
-def add_new_column(table, width, height):
-    """Добавляет новую колонку и устанавливает ее ширину и высоту."""
-    table.insertColumn(table.columnCount())  # Добавляем новую колонку
-    table.setColumnWidth(table.columnCount() - 1, width)  # Устанавливаем ширину новой колонки
-
-    # Устанавливаем высоту всех строк в таблице
-    for row in range(table.rowCount()):
-        table.setRowHeight(row, height)
-
-
-def plot_histogram_from_table(table):
-    """Считывает данные из таблицы и строит гистограмму."""
-    data = []
-    for col in range(table.columnCount()):
-        item = table.item(0, col)  # Обрабатываем только первую строку
-        if item is not None and item.text().strip():
+    def load_data_from_file(self):
+        """Загружает данные из файла и строит гистограмму."""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "", "Все файлы (*.*)")
+        if file_path:
             try:
-                # Преобразуем текст в число
-                data.append(float(item.text()))
-            except ValueError:
-                show_error_message(f"Неверное значение в колонке {col + 1}: '{item.text()}'")
+                gist_znach_1 = read(file_path, "1")
+                if gist_znach_1:  # Проверяем, не пустые ли данные
+                    self.draw_gistogramma(gist_znach_1)
+                else:
+                    self.show_error_message("Ошибка: данные пустые!")
+            except ValueError as e:
+                self.show_error_message(str(e))
+            except Exception as e:
+                self.show_error_message(f"Ошибка при загрузке данных: {str(e)}")
 
-    if data:
-        draw_gistogramma(data)
-    else:
-        show_error_message("Таблица пуста или содержит недопустимые значения.")
+    def show_error_message(self, message):
+        """Отображает сообщение об ошибке в виде всплывающего окна."""
+        error_dialog = QMessageBox()
+        error_dialog.setIcon(QMessageBox.Icon.Critical)
+        error_dialog.setText(message)
+        error_dialog.setWindowTitle("Ошибка")
+        error_dialog.exec()
 
+    def manual_input(self):
+        """Удаляет старые элементы интерфейса и добавляет новые для ввода данных вручную."""
+        layout = self.centralWidget().layout()
 
-def draw_gistogramma(data, bins=10, title="Гистограмма", xlabel="Значения", ylabel="Частота"):
-    try:
-        if not data:  # Проверка на наличие данных
-            show_error_message("Нет данных для построения гистограммы.")
-            return
+        # Удаляем старую таблицу, если она существует
+        if self.table is not None:
+            layout.removeWidget(self.table)
+            self.table.deleteLater()
+            self.table = None
 
-        figure.clear()  # Очищаем фигуру перед созданием нового графика
-        ax = figure.add_subplot(111)  # Добавляем оси на фигуру
-        ax.hist(data, bins=bins, color='blue', edgecolor='black')
-        ax.set_title(title)
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
+        # Создаем новую таблицу с одной строкой и одним столбцом
+        self.table = QTableWidget(1, 1)
+        self.table.setVerticalHeaderLabels(["Значение"])  # Устанавливаем вертикальный заголовок
+        self.table.setHorizontalHeaderLabels(["1"])        # Устанавливаем горизонтальный заголовок
 
-        canvas.draw()  # Обновляем Canvas для отображения новой гистограммы
+        # Изначально пустые значения
+        self.table.setItem(0, 0, QTableWidgetItem(""))
 
-    except Exception as e:
-        show_error_message(f"Ошибка при построении гистограммы: {e}")
+        # Установка ширины и высоты колонок
+        column_width = 60  # Установите желаемую ширину колонок
+        self.table.setColumnWidth(0, column_width)  # Устанавливаем ширину первой колонки
+
+        row_height = 60  # Установите желаемую высоту строк
+        self.table.setRowHeight(0, row_height)  # Устанавливаем высоту первой строки
+
+        # Кнопка для добавления новой колонки
+        self.add_column_button = QPushButton("Добавить колонку")
+        self.add_column_button.clicked.connect(self.add_new_column)
+
+        # Кнопка для построения гистограммы на основе введенных данных
+        self.plot_button = QPushButton("Построить гистограмму")
+        self.plot_button.clicked.connect(self.plot_histogram_from_table)
+
+        # Горизонтальный layout для кнопок добавления колонки и построения графика
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addWidget(self.add_column_button)
+        buttons_layout.addWidget(self.plot_button)
+
+        # Добавляем новую таблицу и кнопки в layout
+        layout.addWidget(self.table)
+        layout.addLayout(buttons_layout)
+
+    def add_new_column(self):
+        """Добавляет новую колонку и устанавливает ее ширину и обновляет заголовки."""
+        if self.table is not None:
+            current_col_count = self.table.columnCount()
+            self.table.insertColumn(current_col_count)
+            self.table.setColumnWidth(current_col_count, 60)  # Устанавливаем ширину новой колонки
+
+            # Обновляем горизонтальные заголовки
+            headers = [str(i + 1) for i in range(self.table.columnCount())]
+            self.table.setHorizontalHeaderLabels(headers)
+
+            # Устанавливаем высоту всех строк в таблице
+            row_count = self.table.rowCount()
+            for row in range(row_count):
+                self.table.setRowHeight(row, 100)
+
+    def plot_histogram_from_table(self):
+        """Считывает данные из таблицы и строит гистограмму."""
+        data = []
+        if self.table is not None:
+            for row in range(self.table.rowCount()):
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    if item is not None and item.text().strip():
+                        try:
+                            # Преобразуем текст в число
+                            data.append(float(item.text()))
+                        except ValueError:
+                            self.show_error_message(f"Неверное значение в ячейке ({row + 1}, {col + 1}): '{item.text()}'")
+                            return
+
+        if data:
+            self.draw_gistogramma(data)
+        else:
+            self.show_error_message("Таблица пуста или содержит недопустимые значения.")
+
+    def draw_gistogramma(self, data, title="Гистограмма", xlabel="Значения", ylabel="Частота"):
+        try:
+            if not data:  # Проверка на наличие данных
+                self.show_error_message("Нет данных для построения гистограммы.")
+                return
+
+            self.figure.clear()  # Очищаем фигуру перед созданием нового графика
+            ax = self.figure.add_subplot(111)  # Добавляем оси на фигуру
+
+            # Автоматическое определение количества бинов
+            bins = len(data)
+            if bins < 1:
+                bins = 1  # Минимум один бин
+
+            ax.hist(data, bins=bins, color='blue', edgecolor='black')
+            ax.set_title(title)
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel)
+            ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+            self.canvas.draw()  # Обновляем Canvas для отображения новой гистограммы
+
+        except Exception as e:
+            self.show_error_message(f"Ошибка при построении гистограммы: {e}")
+
+    def go_back(self):
+        """Возвращает пользователя в главное окно."""
+        self.main_window.show()
+        self.close()
+
+    def closeEvent(self, event):
+        """Обработчик события закрытия окна."""
+        self.main_window.show()
+        event.accept()
+
+# Код для самостоятельного запуска файла не требуется, так как управление осуществляется через main.py

@@ -1,173 +1,205 @@
-import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QFileDialog, QTableWidget, \
-    QMessageBox, QScrollArea, QLabel
+# array_gui.py
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget,
+    QFileDialog, QTableWidget, QMessageBox, QScrollArea, QLabel
+)
+from PyQt6.QtCore import Qt
 
-from data_processing.array_analys import Array
-
-table = None
-table_label = None
-add_column_button = None  # Create a global variable for the "Add Column" button
-
-
-def show_array_window():
-    """Создает главное окно для обработки массива."""
-    gistogramma_window = QMainWindow()
-    gistogramma_window.setWindowTitle("Обработка массива")
-    gistogramma_window.setGeometry(100, 200, 800, 600)
-
-    central_widget = QWidget(gistogramma_window)
-    gistogramma_window.setCentralWidget(central_widget)
-
-    layout = QVBoxLayout(central_widget)
-
-    button1 = QPushButton("Ввести данные из файла")
-    button2 = QPushButton("Ввести данные вручную")
-    button3 = QPushButton("Вывести данные")  # Кнопка для вывода данных
-
-    # Добавляем кнопки в лэйаут
-    layout.addWidget(button1)
-    layout.addWidget(button2)
-    layout.addWidget(button3)  # Добавляем кнопку "Вывести данные"
-
-    # Добавляем пространство между кнопками и остальными элементами
-    layout.addStretch()
-
-    # Подключаем кнопки к функциям
-    button1.clicked.connect(lambda: load_data_from_file(gistogramma_window))
-    button2.clicked.connect(lambda: manual_input(gistogramma_window))
-    button3.clicked.connect(lambda: display_data(gistogramma_window))  # Подключаем кнопку "Вывести данные"
-
-    gistogramma_window.show()
-    return gistogramma_window
+from data_processing.array_analys import Array  # Убедитесь, что путь корректен
 
 
-def load_data_from_file(window):
-    global table, table_label, add_column_button
-    layout = window.centralWidget().layout()
+class ArrayWindow(QMainWindow):
+    def __init__(self, main_window=None):
+        super().__init__()
+        self.main_window = main_window  # Ссылка на главное окно
+        self.setWindowTitle("Обработка массива")
+        self.setGeometry(100, 200, 800, 600)
 
-    # Remove existing table, label, and add column button if they exist
-    if table is not None:
-        layout.removeWidget(table)
-        table.deleteLater()
-        table = None
+        self.table = None
+        self.table_label = None
+        self.add_column_button = None
+        self.scroll_area = None  # Добавляем атрибут для ScrollArea
 
-    if table_label is not None:
-        layout.removeWidget(table_label)
-        table_label.deleteLater()
-        table_label = None
+        self.central_widget = QWidget(self)
+        self.setCentralWidget(self.central_widget)
 
-    if add_column_button is not None:
-        layout.removeWidget(add_column_button)
-        add_column_button.deleteLater()
-        add_column_button = None
+        self.layout = QVBoxLayout(self.central_widget)
 
-    # Create a new QLabel for displaying information
-    table_label = QLabel("")
-    layout.addWidget(table_label)
+        # Создание кнопок
+        self.button_load_file = QPushButton("Ввести данные из файла")
+        self.button_manual_input = QPushButton("Ввести данные вручную")
+        self.button_display_data = QPushButton("Вывести данные")
+        self.button_back = QPushButton("Назад")  # Кнопка "Назад"
 
-    """Загружает данные из файла."""
-    file_path, _ = QFileDialog.getOpenFileName(window, "Выберите файл", "", "Все файлы (*.*)")
-    try:
-        with open(file_path, 'r') as file:
-            data = file.readline().strip().split()  # Считываем первую строку и удаляем лишние пробелы
+        # Добавление кнопок в лэйаут
+        self.layout.addWidget(self.button_load_file)
+        self.layout.addWidget(self.button_manual_input)
+        self.layout.addWidget(self.button_display_data)
+        self.layout.addWidget(self.button_back)  # Добавление кнопки "Назад"
+
+        # Добавляем пространство между кнопками и остальными элементами
+        self.layout.addStretch()
+
+        # QLabel для отображения информации
+        self.table_label = QLabel("")
+        self.table_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.layout.addWidget(self.table_label)
+
+        # Подключаем кнопки к методам
+        self.button_load_file.clicked.connect(self.load_data_from_file)
+        self.button_manual_input.clicked.connect(self.manual_input)
+        self.button_display_data.clicked.connect(self.display_data)
+        self.button_back.clicked.connect(self.go_back)  # Подключаем кнопку "Назад"
+
+    def go_back(self):
+        """Возвращает в главное окно."""
+        if self.main_window:
+            self.main_window.show()  # Показываем главное окно
+        self.close()  # Закрываем текущее окно
+
+    def load_data_from_file(self):
+        """Загружает данные из файла и отображает их."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Выберите файл", "", "Все файлы (*.*)"
+        )
+        if not file_path:
+            return  # Пользователь отменил выбор файла
+
+        try:
+            with open(file_path, 'r') as file:
+                data_line = file.readline().strip()
+                data = data_line.split()  # Разделение по пробелам
+                if data:
+                    try:
+                        data = [float(item) for item in data]
+                        print(f"Загруженные данные: {data}")
+                        # Создаём объект Array и получаем статистику
+                        arr = Array(data)
+                        stats = arr.get_statistics()
+                        self.set_info(stats)
+                    except ValueError:
+                        QMessageBox.information(
+                            self, "Данные", "Вы ввели неправильные данные."
+                        )
+                else:
+                    QMessageBox.warning(
+                        self, "Ввод из файла", "Файл пустой."
+                    )
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Ввод из файла", f"Произошла ошибка: {e}"
+            )
+
+    def manual_input(self):
+        """Позволяет пользователю вводить данные вручную через таблицу."""
+        # Очистка существующих виджетов, кроме кнопок и QLabel
+        self.clear_table_widgets()
+
+        # Создание таблицы для ввода данных
+        self.table = QTableWidget(self)
+        self.table.setRowCount(1)
+        self.table.setColumnCount(1)
+        self.table.setColumnWidth(0, 60)
+        self.table.setRowHeight(0, 120)
+
+        # Добавление таблицы в ScrollArea
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setWidget(self.table)
+        self.scroll_area.setMaximumHeight(150)
+
+        # Кнопка для добавления колонок
+        self.add_column_button = QPushButton("Добавить колонку")
+        self.add_column_button.clicked.connect(self.add_new_column)
+
+        # Добавление виджетов в лэйаут
+        self.layout.addWidget(self.add_column_button)
+        self.layout.addWidget(self.scroll_area)
+
+    def add_new_column(self):
+        """Добавляет новую колонку в таблицу."""
+        if self.table is None:
+            return
+
+        current_column_count = self.table.columnCount()
+        self.table.insertColumn(current_column_count)
+        self.table.setColumnWidth(current_column_count, 60)
+
+        for row in range(self.table.rowCount()):
+            self.table.setRowHeight(row, 120)
+
+    def display_data(self):
+        """Считывает данные из таблицы и отображает информацию."""
+        if self.table is not None:
+            data = []
+            for col in range(self.table.columnCount()):
+                item = self.table.item(0, col)
+                if item is not None and item.text().strip():
+                    data.append(item.text())
+            try:
+                data = [float(item) for item in data]
+            except ValueError:
+                QMessageBox.information(
+                    self, "Данные", "Вы ввели неправильные данные."
+                )
+                return
+
             if data:
                 try:
-                    data = [float(item) for item in data]
-                    print(data)
-                    set_info(window, data)
-                except:
-                    QMessageBox.information(None, "Данные", f"Вы ввели неправильные данные")
+                    arr = Array(data)
+                    stats = arr.get_statistics()
+                    self.set_info(stats)
+                except ValueError as ve:
+                    QMessageBox.warning(
+                        self, "Ошибка", str(ve)
+                    )
             else:
-                QMessageBox.warning(None, "Ввод из файла", "Файл пустой")
-    except Exception:
-        QMessageBox.warning(None, "Ввод из файла", "Произошла ошибка")
-
-
-def manual_input(window):
-    """Удаляет старые элементы интерфейса и добавляет новые для ввода данных вручную."""
-    global table, table_label, add_column_button
-    layout = window.centralWidget().layout()
-
-    try:
-        if table is not None:
-            layout.removeWidget(table)
-            table.deleteLater()
-
-        while layout.count() > 3:
-            item = layout.takeAt(3)
-            if item.widget() is not None:
-                item.widget().deleteLater()
-
-        # Создаем новый QLabel для заголовка таблицы
-        table_label = QLabel("")
-        layout.addWidget(table_label)
-
-        table = QTableWidget(window)
-        table.setRowCount(1)
-        table.setColumnCount(1)
-
-        column_width = 60
-        table.setColumnWidth(0, column_width)
-
-        row_height = 120
-        table.setRowHeight(0, row_height)
-
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setWidget(table)
-
-        scroll_area.setMaximumHeight(150)
-
-        add_column_button = QPushButton("Добавить колонку")
-        add_column_button.clicked.connect(lambda: add_new_column(table, column_width, row_height))
-
-        layout.addWidget(add_column_button)
-        layout.addWidget(scroll_area)
-        layout.addWidget(window.findChild(QPushButton, "Вывести данные"))
-    except Exception as e:
-        QMessageBox.critical(window, "Ошибка", f"Произошла ошибка: {e}")
-
-
-def add_new_column(table, width, height):
-    table.insertColumn(table.columnCount())
-    table.setColumnWidth(table.columnCount() - 1, width)
-    for row in range(table.rowCount()):
-        table.setRowHeight(row, height)
-
-
-def display_data(window, data=[]):
-    global table
-    if table is not None:
-        data = []
-        for col in range(table.columnCount()):
-            item = table.item(0, col)
-            if item is not None and item.text().strip():
-                data.append(item.text())
-        try:
-            data = [float(item) for item in data]
-        except:
-            QMessageBox.information(None, "Данные", f"Вы ввели неправильные данные")
-        if data:
-            if all(isinstance(item, float) for item in data):
-                set_info(window, data)
-            else:
-                QMessageBox.information(None, "Данные", f"Вы ввели неправильные данные")
+                QMessageBox.warning(
+                    self, "Данные", "Нет введенных данных."
+                )
         else:
-            QMessageBox.warning(None, "Данные", "Нет введенных данных.")
-    else:
-        QMessageBox.warning(None, "Данные", "Таблица пуста.")
+            QMessageBox.warning(
+                self, "Данные", "Таблица пуста."
+            )
+
+    def set_info(self, stats):
+        """Отображает статистическую информацию о массиве."""
+        avg, error, mn, mx = stats
+        self.table_label.setText(f"""
+            <span style="font-size: 16px;">
+                Среднее значение: {avg} ± {error}<br><br>
+                Минимальное значение: {mn}<br><br>
+                Максимальное значение: {mx}
+            </span>
+        """)
+
+    def clear_table_widgets(self):
+        """Удаляет таблицу и кнопку добавления колонок, если они существуют."""
+        if self.table and self.scroll_area and self.add_column_button:
+            self.layout.removeWidget(self.add_column_button)
+            self.add_column_button.deleteLater()
+            self.add_column_button = None
+
+            self.layout.removeWidget(self.scroll_area)
+            self.scroll_area.deleteLater()
+            self.scroll_area = None
+
+            self.table.deleteLater()
+            self.table = None
+
+        elif self.add_column_button:
+            self.layout.removeWidget(self.add_column_button)
+            self.add_column_button.deleteLater()
+            self.add_column_button = None
+
+        elif self.scroll_area:
+            self.layout.removeWidget(self.scroll_area)
+            self.scroll_area.deleteLater()
+            self.scroll_area = None
 
 
-def set_info(window, data):
-    global table_label
-    arr = Array(data)
-    avg = arr.find_avg()
-    mn = arr.find_min()
-    mx = arr.find_max()
-    table_label.setText(f"""
-           <span style="font-size: 16px;">  <!-- Увеличиваем размер шрифта -->
-               Среднее значение: {avg}<br><br>  <!-- Два переноса строки для отступа -->
-               Минимальное значение: {mn}<br><br>
-               Максимальное значение: {mx}
-           </span>
-       """)
+def show_array_window(main_window=None):
+    """Создает и возвращает экземпляр окна обработки массива."""
+    window = ArrayWindow(main_window=main_window)
+    window.show()
+    return window
